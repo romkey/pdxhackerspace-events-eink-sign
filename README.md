@@ -11,7 +11,7 @@ I have this running on three different platforms:
 - [SeeedStudio EE04 controller](https://www.seeedstudio.com/XIAO-ePaper-Display-Board-EE04-p-6560.html) with [7.3" Spectra6 800x480 ePaper display](https://www.seeedstudio.com/7-3inch-Six-Color-eInk-ePaper-Display-with-800x480-Pixels-p-6567.html)
 - [SeeedStudio EE02 controller](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE02-for-13-3-Spectratm-6-E-Ink.html) with [13.3" Spectra6 1200x1600 ePaper display](https://www.seeedstudio.com/13-3inch-Six-Color-eInk-ePaper-Display-with-1200x1600-Pixels-p-6569.html)
 
-![SeeedStudio ReTerminal](docs/image/reterminal-73.jpg) ![Spectra6 13.3"](docs/image/spectra6-133.jpg)
+![SeeedStudio ReTerminal](docs/images/reterminal-73.jpg) ![Spectra6 13.3"](docs/images/spectra6-133.jpg)
 
 It should be relatively easy to adapt this to other controllers; you'd need to change the pins used but the LVGL code should still work without modifications.
 
@@ -26,6 +26,10 @@ All are running firmware built with [ESPHome](https://esphome.io) using LVGL. ES
 I wrote the initial firmware by hand and then put it down for a few months. When I came back to it I tried having Claude update it - Opus 4.8 did a great job and is apparently adept at writing ESPHome firmware now. It also made the changes to the 13.3" PR.
 
 I'm sharing this in the spirit of sharing but I'm not intending to generalize this or offer support to anyone trying to use it.
+
+## Docker
+
+I've included `docker-compose.yml` to make it easy to build the firmware.
 
 ## License
 
