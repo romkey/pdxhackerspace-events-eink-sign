@@ -52,11 +52,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "STL files are already up to date."
           else
-            git commit -m "$(cat <<'EOF'
-Update specta6-13 STL files.
-
-Generated from cases/specta6-13.scad by OpenSCAD CI.
-EOF
-)"
+            git commit -m "Update specta6-13 STL files" -m "Generated from cases/specta6-13.scad by OpenSCAD CI."
             git push
           fi
