@@ -58,17 +58,17 @@ web_server:
 
 # --- SPI & Display ---
 spi:
-  clk_pin: GPIO8
+  clk_pin: GPIO7
   mosi_pin: GPIO10
 
 display:
   - platform: epaper_spi
     id: epaper_display
     model: 7.3in-spectra-e6
-    cs_pin: GPIO3
-    dc_pin: GPIO5
+    cs_pin: GPIO44
+    dc_pin: GPIO10
     reset_pin:
-      number: GPIO2
+      number: GPIO38
       inverted: false
     busy_pin:
       number: GPIO4
