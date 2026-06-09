@@ -59,7 +59,7 @@ web_server:
 # --- SPI & Display ---
 spi:
   clk_pin: GPIO7
-  mosi_pin: GPIO10
+  mosi_pin: GPIO9
 
 display:
   - platform: epaper_spi

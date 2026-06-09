@@ -30,13 +30,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create secrets stub for CI
         run: cp src/secrets.yaml.example src/secrets.yaml
 
       - name: Cache ESPHome build tree
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: src/.esphome
           key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/**/*.yaml', 'src/**/*.yml', 'src/local_components/**', 'src/images/**') }}
