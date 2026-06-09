@@ -47,8 +47,9 @@ foot_len = 90;
 stand_foot_depth = 95;
 stand_foot_back = stand_foot_depth / 3;
 stand_foot_front = 2 * stand_foot_depth / 3;
+stand_heel_h = 25;
+stand_slot_depth = 15;
 stand_base_t = 5;
-stand_shelf_t = 2;
 foot_count = 4;  // suggested copies along the frame bottom edge
 
 // --- Render control ---
@@ -136,19 +137,23 @@ module back_panel_half(side) {
     }
 }
 
-// Single foot segment: 1/3 base behind groove, 2/3 in front. Angled ledge only —
-// open along X at both ends, no side walls.
+// Narrow segment of stand_base (print foot_count copies along the frame edge).
 module stand_foot(angle = stand_angle) {
     slot_w = case_thickness + stand_slot_clearance;
     tilt = angle - 90;
 
+    // Foot: 1/3 behind slot (−Y), 2/3 in front (+Y) where display leans.
     translate([0, -stand_foot_back, 0])
         cube([foot_len, stand_foot_depth, stand_base_t]);
 
+    // Slot at the 1/3 / 2/3 boundary; same as full base but no side walls.
     translate([0, 0, stand_base_t])
         rotate([tilt, 0, 0])
-            translate([0, -slot_w / 2, 0])
-                cube([foot_len, slot_w, stand_shelf_t]);
+            difference() {
+                cube([foot_len, slot_w, stand_heel_h]);
+                translate([0, 0, stand_heel_h - stand_slot_depth])
+                    cube([foot_len, slot_w, stand_slot_depth + 0.02]);
+            }
 }
 
 if (part == "front-left") {
