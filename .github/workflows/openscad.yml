@@ -36,22 +36,17 @@ jobs:
 
       - name: Verify STLs on pull request
         if: github.event_name == 'pull_request'
-        run: |
-          git diff --exit-code -- cases/specta6-13-front.stl \
-                                 cases/specta6-13-back.stl \
-                                 cases/specta6-13-base.stl
+        run: git diff --exit-code -- cases/specta6-13*.stl
 
       - name: Commit STLs on main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add cases/specta6-13-front.stl \
-                  cases/specta6-13-back.stl \
-                  cases/specta6-13-base.stl
+          git add cases/specta6-13*.stl
           if git diff --staged --quiet; then
             echo "STL files are already up to date."
           else
-            git commit -m "Update specta6-13 STL files" -m "Generated from cases/specta6-13.scad by OpenSCAD CI."
+            git commit -m "Update specta6-13 STL files" -m "Generated from cases/specta6-13.scad and cases/specta6-13-split.scad by OpenSCAD CI."
             git push
           fi
