@@ -26,7 +26,7 @@ psram:
 packages:
   wifi-diagnostics: github://romkey/esphome-lib/lib/wifi-diagnostics.yml@main
   esp32-diagnostics: github://romkey/esphome-lib/lib/esp32.yml@main
-  events-display: !include events-display.yml
+  events-display: !include lib/events-display.yaml
 
 logger:
   baud_rate: 115200

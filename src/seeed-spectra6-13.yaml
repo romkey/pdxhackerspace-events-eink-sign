@@ -31,7 +31,7 @@ psram:
 packages:
   wifi-diagnostics: github://romkey/esphome-lib/lib/wifi-diagnostics.yml@main
   esp32-diagnostics: github://romkey/esphome-lib/lib/esp32.yml@main
-  events-display: !include events-display-13.yml
+  events-display: !include lib/events-display-13.yaml
 
 external_components:
   - source:

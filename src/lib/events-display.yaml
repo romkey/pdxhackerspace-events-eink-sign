@@ -1,5 +1,5 @@
 # Shared PDX Hackerspace event fetch + display logic.
-# Include via: packages: events-display: !include events-display.yml
+# Include via: packages: events-display: !include lib/events-display.yaml
 # Device file must define: epaper_display, bsp_battery_enable
 
 font:

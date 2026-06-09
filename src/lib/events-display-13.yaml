@@ -1,6 +1,6 @@
 # Shared PDX Hackerspace event fetch + display logic for 13" Spectra6.
 # Native panel: 1200x1600 portrait; landscape layout via LVGL rotation: 90.
-# Include via: packages: events-display: !include events-display-13.yml
+# Include via: packages: events-display: !include lib/events-display-13.yaml
 # Device file must define: epaper_display, bsp_battery_enable
 
 font:
@@ -293,7 +293,7 @@ image:
 #    id: ctrlh_sign
 #    type: rgb565
 #    resize: 1280x640
-  - file: "images/events-qr.png"
+  - file: "images/events-qr-13.png"
     id: hackerspace_qr
     type: grayscale
 

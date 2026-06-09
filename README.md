@@ -29,7 +29,48 @@ I'm sharing this in the spirit of sharing but I'm not intending to generalize th
 
 ## Docker
 
-I've included `docker-compose.yml` to make it easy to build the firmware.
+`docker-compose.yaml` runs ESPHome with `./src` mounted as `/config`. Config YAML and `local_components` live in `src/`.
+
+### Setup (once)
+
+```bash
+cp src/secrets.yaml.example src/secrets.yaml   # edit with your Wi-Fi credentials
+```
+
+### Dashboard (edit YAML, compile, OTA upload)
+
+```bash
+docker compose up
+open http://localhost:6052
+```
+
+### One-shot compile
+
+Replace the config name with the device you are building:
+
+- `reterminal.yaml` — ReTerminal 7.3"
+- `seeed-spectra6.yaml` — EE04 + 7.3" Spectra6
+- `seeed-spectra6-13.yaml` — EE02 + 13.3" Spectra6
+
+```bash
+docker compose run --rm esphome compile seeed-spectra6-13.yaml
+```
+
+### One-shot OTA upload
+
+Device must already be on the network and have been flashed at least once.
+
+```bash
+docker compose run --rm esphome upload seeed-spectra6-13.yaml
+```
+
+### Logs
+
+```bash
+docker compose run --rm esphome logs seeed-spectra6-13.yaml
+```
+
+USB serial flash from Docker works on Linux only. On macOS, compile here and flash via the dashboard OTA/web installer, or use ESPHome natively for USB.
 
 ## License
 
