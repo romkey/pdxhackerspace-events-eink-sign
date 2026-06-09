@@ -39,7 +39,10 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src/.esphome
-          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/**/*.yaml', 'src/local_components/**', 'src/images/**') }}
+          # Hash source inputs only. Do not use src/**/*.yaml — after compile,
+          # src/.esphome contains generated yaml and symlinks that break hashFiles
+          # when the cache action re-evaluates the key in its post step.
+          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/reterminal.yaml', 'src/seeed-spectra6.yaml', 'src/seeed-spectra6-13.yaml', 'src/lib/**', 'src/local_components/**', 'src/images/*') }}
           restore-keys: |
             esphome-${{ runner.os }}-${{ matrix.config }}-
 
