@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: src/.esphome
-          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/**/*.yaml', 'src/**/*.yml', 'src/local_components/**', 'src/images/**') }}
+          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/**/*.yaml', 'src/local_components/**', 'src/images/**') }}
           restore-keys: |
             esphome-${{ runner.os }}-${{ matrix.config }}-
 
