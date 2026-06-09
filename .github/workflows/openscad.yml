@@ -1,0 +1,62 @@
+name: OpenSCAD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cases/**"
+      - ".github/workflows/openscad.yml"
+  pull_request:
+    paths:
+      - "cases/**"
+      - ".github/workflows/openscad.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: openscad-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  stl:
+    name: Generate case STLs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install OpenSCAD
+        run: sudo apt-get update && sudo apt-get install -y openscad
+
+      - name: Generate STLs
+        run: ./cases/generate-stls.sh
+
+      - name: Verify STLs on pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff --exit-code -- cases/specta6-13-front.stl \
+                                 cases/specta6-13-back.stl \
+                                 cases/specta6-13-base.stl
+
+      - name: Commit STLs on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cases/specta6-13-front.stl \
+                  cases/specta6-13-back.stl \
+                  cases/specta6-13-base.stl
+          if git diff --staged --quiet; then
+            echo "STL files are already up to date."
+          else
+            git commit -m "$(cat <<'EOF'
+Update specta6-13 STL files.
+
+Generated from cases/specta6-13.scad by OpenSCAD CI.
+EOF
+)"
+            git push
+          fi

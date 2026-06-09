@@ -46,9 +46,18 @@ jobs:
           restore-keys: |
             esphome-${{ runner.os }}-${{ matrix.config }}-
 
+      - name: Fix .esphome ownership after cache restore
+        run: |
+          if [ -d src/.esphome ]; then
+            sudo chown -R "$(id -u):$(id -g)" src/.esphome
+          fi
+
       - name: Compile firmware
         run: |
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME \
             -v "${{ github.workspace }}/src:/config" \
+            -v "$HOME:$HOME" \
             ghcr.io/esphome/esphome:stable \
             compile "${{ matrix.config }}"
