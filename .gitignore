@@ -2,3 +2,5 @@ secrets.yaml
 .esphome/
 .pioenvs/
 .piolibdeps/
+# ESPHome likes to create this...
+src/.gitignore

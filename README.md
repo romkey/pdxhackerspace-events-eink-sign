@@ -1,5 +1,7 @@
 # E-ink Event Sign For PDX Hackerspace
 
+[![ESPHome](https://github.com/romkey/pdxhackerspace-events-eink-sign/actions/workflows/esphome.yml/badge.svg)](https://github.com/romkey/pdxhackerspace-events-eink-sign/actions/workflows/esphome.yml)
+
 Since we now have an [event manager](https://github.com/pdxhackerspace/event-manager) at the hackerspace, I've been wanting to build a smart sign to hang in the doorway that would give a list of upcoming events.
 
 I got hung up on the idea of an e-ink sign because e-ink is pretty and looks sharp. It's also great for power savings, although the way I'm envisioning using this we'll keep it powered all the time, but it could be battery powered and just wake up and refresh once every 30 minutes or however long made sense.

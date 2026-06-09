@@ -1,0 +1,51 @@
+name: ESPHome
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - ".github/workflows/esphome.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/esphome.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: esphome-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.config }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - reterminal.yaml
+          - seeed-spectra6.yaml
+          - seeed-spectra6-13.yaml
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create secrets stub for CI
+        run: cp src/secrets.yaml.example src/secrets.yaml
+
+      - name: Cache ESPHome build tree
+        uses: actions/cache@v4
+        with:
+          path: src/.esphome
+          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/**/*.yaml', 'src/**/*.yml', 'src/local_components/**', 'src/images/**') }}
+          restore-keys: |
+            esphome-${{ runner.os }}-${{ matrix.config }}-
+
+      - name: Compile firmware
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/src:/config" \
+            ghcr.io/esphome/esphome:stable \
+            compile "${{ matrix.config }}"

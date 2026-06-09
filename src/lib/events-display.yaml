@@ -288,10 +288,6 @@ script:
               - component.update: epaper_display
 
 image:
-  - file: "images/ctrlh-sign.png"
-    id: ctrlh_sign
-    type: rgb565
-    resize: 640x320
   - file: "images/events-qr.png"
     id: hackerspace_qr
     type: grayscale
