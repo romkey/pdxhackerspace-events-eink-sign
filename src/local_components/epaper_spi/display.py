@@ -191,7 +191,12 @@ async def to_code(config):
         or config.get(CONF_SHOW_TEST_CARD) is True
     )
     display.add_metadata(
-        config[CONF_ID], width, height, has_writer, has_hardware_rotation=True
+        config[CONF_ID],
+        width,
+        height,
+        has_hardware_rotation=True,
+        has_writer=has_writer,
+        rotation=config.get(CONF_ROTATION, 0),
     )
     await spi.register_spi_device(var, config, write_only=True)
 
