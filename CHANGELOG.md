@@ -32,6 +32,7 @@ All notable changes to this project are documented here. The format follows
 - esphome-lib packages are pinned to v0.2.0 instead of `main`.
 - Images use the `platform: file` form ESPHome now requires.
 - The EE04 no longer defines an unused buzzer output.
+- The 13.3" panel datasheet is Seeed's current revision, with its source recorded.
 - Battery voltage reports device/state class and is smoothed with a
   moving average.
 
