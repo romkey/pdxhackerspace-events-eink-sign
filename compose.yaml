@@ -72,6 +72,9 @@ services:
   #   docker compose run --rm stl
   stl:
     image: openscad/openscad:trixie.2026-09-28
+    # Same architecture as CI: OpenSCAD's float output differs on arm64, so
+    # STLs made on an Apple Silicon Mac would otherwise never match.
+    platform: linux/amd64
     volumes:
       - .:/project
     working_dir: /project
