@@ -142,4 +142,3 @@ if (part == "all") {
 } else if (part == "base") {
     stand_base();
 }
-
