@@ -1,0 +1,124 @@
+# Seeed EE04 (XIAO ESP32-S3) + 7.3" Spectra6 color ePaper, 800x480.
+#
+#   https://www.seeedstudio.com/XIAO-ePaper-Display-Board-EE04-p-6560.html
+#   https://www.seeedstudio.com/7-3inch-Six-Color-eInk-ePaper-Display-with-800x480-Pixels-p-6567.html
+
+substitutions:
+  name: seeed-spectra6
+  friendly_name: Seeed Spectra6
+
+esphome:
+  comment: "Seeed XIAO ESP32-S3 + 7.3\" color ePaper (Spectra6)"
+  # No display update at boot: the ePaper keeps its last image, and
+  # events_update skips unchanged content, so drawing the still-empty UI here
+  # would wipe the panel until the events or weather change.
+  on_boot:
+    - priority: 600
+      then:
+        - output.turn_on: battery_enable
+
+esp32:
+  variant: esp32s3
+  board: seeed_xiao_esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+    advanced:
+      compiler_optimization: SIZE
+      enable_idf_experimental_features: true
+      enable_lwip_assert: true
+      ignore_efuse_custom_mac: false
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+packages:
+  base: !include common/base.yaml
+  battery: !include
+    file: ../packages/battery.yaml
+    vars:
+      battery_adc_pin: GPIO1
+      battery_enable_pin: GPIO21
+  events: !include ../packages/events.yaml
+  events_ui: !include ../packages/events-ui-800x480.yaml
+
+web_server:
+  version: 3
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+display:
+  - platform: epaper_spi
+    id: epaper_display
+    model: 7.3in-spectra-e6
+    cs_pin: GPIO44
+    dc_pin: GPIO10
+    reset_pin:
+      number: GPIO38
+      inverted: false
+    busy_pin:
+      number: GPIO4
+      inverted: true
+    update_interval: never
+    auto_clear_enabled: false
+
+output:
+  - platform: gpio
+    pin: GPIO6
+    id: led_output
+    inverted: true
+
+light:
+  - platform: binary
+    id: onboard_led
+    name: "Onboard LED"
+    output: led_output
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_1
+    name: "Button 1"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 300ms
+        - light.turn_off: onboard_led
+
+  - platform: gpio
+    pin:
+      number: GPIO2
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_2
+    name: "Button 2"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 150ms
+        - light.turn_off: onboard_led
+        - delay: 150ms
+        - light.turn_on: onboard_led
+        - delay: 150ms
+        - light.turn_off: onboard_led
+        - delay: 150ms
+        - light.turn_on: onboard_led
+        - delay: 200ms
+        - light.turn_off: onboard_led
+
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_3
+    name: "Button 3"
+    on_press:
+      then:
+        - light.toggle: onboard_led

@@ -1,0 +1,326 @@
+# PDX Hackerspace events + weather: fetch, parse, decide when to refresh.
+#
+# Fetches upcoming events from the hackerspace event manager's JSON feed,
+# subscribes to a 5-day forecast from Home Assistant, and decides whether the
+# ePaper panel needs redrawing: only when the events or weather changed, and
+# at most once per events_min_refresh_seconds. A manual refresh (the "Refresh
+# Events" button, or setting events_force_refresh) bypasses both checks.
+#
+# No user interface: drawing is done by a UI package (events-ui-*.yaml),
+# which replaces these no-op scripts with !extend:
+#   events_render_events   draw id(events_list) / id(events_last_updated)
+#   events_render_weather  draw the forecast JSON in id(events_weather_content)
+#   events_refresh_display push the drawing to the panel
+#
+# Requires: wifi, api (Home Assistant time and weather), and enough RAM for
+# a 50 KB HTTP response (PSRAM recommended).
+#
+# Home Assistant must provide events_weather_entity with a JSON attribute
+# "forecast" shaped {"f": [{"d":"Sun","c":"cloudy","h":65,"l":58}, ...]}.
+# HA 2024.3+ removed the weather forecast attribute, so this is a template
+# sensor that calls weather.get_forecasts.
+#
+# The package uses fixed internal ids (events_*), so include it only once.
+#
+# Substitutions:
+#   events_url                  JSON feed
+#                               (default https://events.pdxhackerspace.org/events/eink.json)
+#   events_user_agent           HTTP user agent (default reterminal-e1002-esphome)
+#   events_timezone             POSIX TZ string; ESP-IDF doesn't understand Olson
+#                               names (default PST8PDT,M3.2.0,M11.1.0)
+#   events_max                  events shown (default 5)
+#   events_update_interval      how often to fetch (default 30min)
+#   events_connect_delay        wait after Wi-Fi connects before the first fetch,
+#                               so HA time and weather arrive first (default 8s)
+#   events_min_refresh_seconds  minimum time between panel refreshes (default 900)
+#   events_weather_entity       HA forecast sensor (default sensor.weather_forecast_5_day)
+#   events_list_name            entity name (default "Hackerspace Events")
+#   events_last_updated_name    entity name (default "Hackerspace Events Last Updated")
+#   events_refresh_name         entity name (default "Refresh Events")
+
+substitutions:
+  events_url: "https://events.pdxhackerspace.org/events/eink.json"
+  events_user_agent: "reterminal-e1002-esphome"
+  events_timezone: "PST8PDT,M3.2.0,M11.1.0"
+  events_max: "5"
+  events_update_interval: "30min"
+  events_connect_delay: "8s"
+  events_min_refresh_seconds: "900"
+  events_weather_entity: "sensor.weather_forecast_5_day"
+  events_list_name: "Hackerspace Events"
+  events_last_updated_name: "Hackerspace Events Last Updated"
+  events_refresh_name: "Refresh Events"
+
+# --- Persistent state for rate-limiting / change-detection ---
+# These survive deep sleep and reboots (restore_value) so a device that wakes,
+# checks for updates, and sleeps again can tell whether the displayed content
+# actually changed and how long ago the panel was last refreshed.
+globals:
+  # FNV-1a hashes of the content currently drawn on the panel.
+  - id: events_displayed_events_hash
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  - id: events_displayed_weather_hash
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  # Unix epoch (seconds) of the last physical panel refresh; 0 means "never".
+  - id: events_last_render_epoch
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  # Latest raw weather forecast payload received from HA this session, plus a
+  # flag so a not-yet-received forecast is treated as "unchanged" rather than
+  # as a spurious change right after boot.
+  - id: events_weather_content
+    type: std::string
+    restore_value: false
+    initial_value: '""'
+  - id: events_weather_received
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Set by the refresh decision; gates events_refresh_display.
+  - id: events_should_refresh_display
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Set by manual refresh actions to bypass rate-limit + change-detection.
+  - id: events_force_refresh
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+http_request:
+  id: events_http
+  useragent: ${events_user_agent}
+  timeout: 10s
+  verify_ssl: true
+
+time:
+  - platform: homeassistant
+    id: events_time
+    timezone: "${events_timezone}"
+
+wifi:
+  on_connect:
+    then:
+      # Give the HA API connection, time sync, and weather subscription a moment
+      # to settle so the refresh decision sees current events + weather.
+      - delay: ${events_connect_delay}
+      - script.execute: events_update
+
+text_sensor:
+  - platform: template
+    id: events_list
+    name: "${events_list_name}"
+    update_interval: never
+
+  - platform: template
+    id: events_last_updated
+    name: "${events_last_updated_name}"
+    update_interval: never
+
+  - platform: homeassistant
+    id: events_weather_forecast
+    entity_id: ${events_weather_entity}
+    attribute: forecast
+    on_value:
+      then:
+        - lambda: |-
+            // Remember the latest forecast so the refresh decision in
+            // events_update can detect whether the weather actually changed.
+            id(events_weather_content) = x;
+            id(events_weather_received) = true;
+        - script.execute: events_render_weather
+
+button:
+  - platform: template
+    name: "${events_refresh_name}"
+    on_press:
+      then:
+        - lambda: 'id(events_force_refresh) = true;'
+        - script.execute: events_update
+
+interval:
+  - interval: ${events_update_interval}
+    then:
+      - script.execute: events_update
+
+script:
+  # UI hooks: no-ops here, replaced by a UI package.
+  - id: events_render_events
+    then:
+      - logger.log:
+          level: VERBOSE
+          format: "No events UI"
+  - id: events_render_weather
+    then:
+      - logger.log:
+          level: VERBOSE
+          format: "No weather UI"
+  - id: events_refresh_display
+    then:
+      - logger.log:
+          level: VERBOSE
+          format: "No display to refresh"
+
+  - id: events_update
+    mode: restart
+    then:
+      - http_request.get:
+          id: events_http
+          url: ${events_url}
+          capture_response: true
+          max_response_buffer_size: 50000
+          on_response:
+            then:
+              - lambda: |-
+                  auto format_pretty_datetime = [](time_t ts) -> std::string {
+                    ::setenv("TZ", "${events_timezone}", 1);
+                    ::tzset();
+                    struct tm t = {};
+                    ::localtime_r(&ts, &t);
+
+                    static const char *WEEKDAYS[] = {
+                      "Sun","Mon","Tue","Wed","Thu","Fri","Sat"
+                    };
+                    static const char *MONTHS[] = {
+                      "Jan","Feb","Mar","Apr","May","Jun",
+                      "Jul","Aug","Sep","Oct","Nov","Dec"
+                    };
+
+                    int hour12 = t.tm_hour % 12;
+                    if (hour12 == 0) hour12 = 12;
+                    const char *ampm = (t.tm_hour >= 12) ? "PM" : "AM";
+
+                    char buf[64];
+                    snprintf(buf, sizeof(buf),
+                      "%s %2d %s %2d:%02d%s",
+                      WEEKDAYS[t.tm_wday],
+                      t.tm_mday,
+                      MONTHS[t.tm_mon],
+                      hour12, t.tm_min, ampm);
+
+                    return std::string(buf);
+                  };
+
+                  id(events_should_refresh_display) = false;
+
+                  ESP_LOGI("events", "HTTP status %d, %d bytes",
+                          response->status_code, body.size());
+                  if (response->status_code != 200) {
+                    ESP_LOGW("events", "Non-200 status, skipping parse");
+                    return;
+                  }
+
+                  JsonDocument doc;
+                  DeserializationError error = deserializeJson(doc, body);
+                  if (error) {
+                    ESP_LOGE("json", "deserializeJson() returned %s", error.c_str());
+                    return;
+                  }
+
+                  ESP_LOGI("json", "Deserialized JSON successfully");
+
+                  time_t now = ::time(nullptr);
+                  JsonArray evs = doc["occurrences"];
+                  std::string result = "";
+                  int count = 0;
+
+                  for (JsonObject ev : evs) {
+                    if (count >= ${events_max}) break;
+
+                    long start_ts = ev["start_time"].as<long>();
+                    if (start_ts < now) continue;  // skip past events
+
+                    const char *title = ev["name"];
+                    std::string pretty_timestamp = format_pretty_datetime((time_t) start_ts);
+
+                    bool cancelled = ev["cancelled"] | false;
+                    const char *open_to = ev["open_to"] | "";
+
+                    ESP_LOGI("events", "title %s start_time %ld pretty %s cancelled %d open_to %s",
+                             title, start_ts, pretty_timestamp.c_str(), cancelled, open_to);
+
+                    char line[160];
+                    if (cancelled) {
+                      // LVGL recolor markup: red text.
+                      snprintf(line, sizeof(line), "#FF0000 %s  %s CANCELLED#",
+                               pretty_timestamp.c_str(), title);
+                    } else {
+                      snprintf(line, sizeof(line), "%s  %s (%s)",
+                               pretty_timestamp.c_str(), title, open_to);
+                    }
+                    if (!result.empty()) result += "\n";
+                    result += line;
+                    count++;
+                  }
+
+                  id(events_list).publish_state(result);
+
+                  // Use the server's own `updated_at` epoch from the JSON, NOT the
+                  // device clock. The HA-synced device clock has been unreliable at
+                  // fetch time (showing future/UTC values); the JSON timestamp is a
+                  // real epoch that goes through the same formatter as the event
+                  // times above, which render correctly.
+                  std::string last_upd;
+                  if (doc["updated_at"].is<long>()) {
+                    time_t upd_ts = (time_t)doc["updated_at"].as<long>();
+                    last_upd = "(last updated: " + format_pretty_datetime(upd_ts) + ")";
+                  }
+                  id(events_last_updated).publish_state(last_upd);
+
+                  // --- Decide whether the panel actually needs refreshing ---
+                  // Requirements:
+                  //  * never refresh more than once per events_min_refresh_seconds
+                  //  * never refresh if neither events nor weather changed
+                  // A manual refresh (events_force_refresh) bypasses both gates.
+                  auto fnv1a = [](const std::string &s) -> uint32_t {
+                    uint32_t h = 2166136261u;
+                    for (unsigned char c : s) { h ^= c; h *= 16777619u; }
+                    return h;
+                  };
+
+                  uint32_t ev_hash = fnv1a(result);
+                  // If we haven't received a forecast yet this session, treat the
+                  // weather as unchanged rather than as a spurious change.
+                  uint32_t wx_hash = id(events_weather_received)
+                                       ? fnv1a(id(events_weather_content))
+                                       : id(events_displayed_weather_hash);
+
+                  bool content_changed = (ev_hash != id(events_displayed_events_hash)) ||
+                                         (wx_hash != id(events_displayed_weather_hash));
+
+                  // Rate limit using the wall clock (epoch is timezone-independent
+                  // and the RTC keeps running across deep sleep). If the clock is
+                  // not yet valid we can't measure the interval, so we don't block.
+                  auto tnow = id(events_time).now();
+                  uint32_t now_epoch = tnow.is_valid() ? (uint32_t) tnow.timestamp : 0;
+                  bool rate_ok = (id(events_last_render_epoch) == 0) ||
+                                 (now_epoch == 0) ||
+                                 (now_epoch - id(events_last_render_epoch) >= ${events_min_refresh_seconds});
+
+                  bool do_refresh = id(events_force_refresh) || (content_changed && rate_ok);
+                  id(events_force_refresh) = false;
+
+                  if (do_refresh) {
+                    id(events_displayed_events_hash) = ev_hash;
+                    id(events_displayed_weather_hash) = wx_hash;
+                    if (now_epoch != 0) id(events_last_render_epoch) = now_epoch;
+                    id(events_should_refresh_display) = true;
+                    ESP_LOGI("events", "Refreshing panel (changed=%d rate_ok=%d)",
+                             content_changed, rate_ok);
+                  } else {
+                    ESP_LOGI("events",
+                             "Skipping panel refresh (changed=%d rate_ok=%d)",
+                             content_changed, rate_ok);
+                  }
+              - script.execute: events_render_events
+              - script.wait: events_render_events
+              - if:
+                  condition:
+                    lambda: 'return id(events_should_refresh_display);'
+                  then:
+                    - script.execute: events_refresh_display

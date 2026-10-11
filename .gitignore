@@ -1,6 +1,25 @@
-secrets.yaml
+# ESPHome build output
 .esphome/
+
+# Secrets and personal device configs (either extension)
+**/secrets.yaml
+**/secrets.yml
+**/local*.yaml
+**/local*.yml
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Editors
+*~
+.vscode/
+.idea/
+
+# PlatformIO and ESPHome Device Builder state (includes a private key)
 .pioenvs/
 .piolibdeps/
-# ESPHome likes to create this...
-src/.gitignore
+.device-builder*

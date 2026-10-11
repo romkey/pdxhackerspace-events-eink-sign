@@ -1,0 +1,378 @@
+# PDX Hackerspace events sign UI for an 800x480 landscape panel (7.3" Spectra6).
+#
+# LVGL layout: header, up to 5 upcoming events, a 5-day weather forecast
+# row and a QR code linking to the events page. Draws the data from
+# packages/events.yaml by replacing its events_render_* and
+# events_refresh_display scripts.
+#
+# Requires: packages/events.yaml, a display with id events_ui_display_id
+# (update_interval: never) and internet access at build time (fonts come
+# from Google Fonts, weather icons from jsDelivr).
+#
+# Colors are limited to what the Spectra6 panel can show: black, white,
+# red, yellow, blue, orange, green; no gray.
+#
+# Widget ids are fixed, so include only one events-ui package.
+#
+# Substitutions:
+#   events_ui_display_id  display to draw on (default epaper_display)
+#   events_ui_qr_image    QR code image, relative to the config
+#                         (default ../images/events-qr.png)
+
+substitutions:
+  events_ui_display_id: epaper_display
+  events_ui_qr_image: "../images/events-qr.png"
+
+font:
+  - file: "gfonts://JetBrains Mono@700"
+    id: font_large
+    size: 32
+  - file: "gfonts://JetBrains Mono@600"
+    id: font_med
+    size: 24
+  - file: "gfonts://JetBrains Mono@400"
+    id: font_small
+    size: 16
+  # MDI webfont — same icon set Home Assistant uses for weather conditions.
+  # Downloaded from jsDelivr during ESPHome build; requires internet access.
+  - file: "https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/fonts/materialdesignicons-webfont.ttf"
+    id: font_weather_icon
+    size: 64
+    glyphs:
+      - "\U000F0590"  # weather-cloudy
+      - "\U000F0591"  # weather-fog
+      - "\U000F0592"  # weather-hail
+      - "\U000F0593"  # weather-lightning
+      - "\U000F0594"  # weather-night (clear-night)
+      - "\U000F0595"  # weather-partly-cloudy
+      - "\U000F0596"  # weather-pouring
+      - "\U000F0597"  # weather-rainy
+      - "\U000F0598"  # weather-snowy
+      - "\U000F0599"  # weather-sunny
+      - "\U000F059D"  # weather-windy
+      - "\U000F059E"  # weather-windy-variant
+      - "\U000F067E"  # weather-lightning-rainy
+      - "\U000F067F"  # weather-snowy-rainy
+
+script:
+  - id: !extend events_render_events
+    then:
+      - lambda: |-
+          lv_label_set_text(id(event_list_label), id(events_list).state.c_str());
+          lv_label_set_text(id(last_updated_label), id(events_last_updated).state.c_str());
+
+  - id: !extend events_render_weather
+    then:
+      - lambda: |-
+          auto cond_glyph = [](const std::string &c) -> std::string {
+            if (c == "sunny")            return "\U000F0599";
+            if (c == "clear-night")      return "\U000F0594";
+            if (c == "partlycloudy")     return "\U000F0595";
+            if (c == "cloudy")           return "\U000F0590";
+            if (c == "fog")              return "\U000F0591";
+            if (c == "rainy")            return "\U000F0597";
+            if (c == "pouring")          return "\U000F0596";
+            if (c == "snowy")            return "\U000F0598";
+            if (c == "snowy-rainy")      return "\U000F067F";
+            if (c == "lightning")        return "\U000F0593";
+            if (c == "lightning-rainy")  return "\U000F067E";
+            if (c == "hail")             return "\U000F0592";
+            if (c == "windy")            return "\U000F059D";
+            if (c == "windy-variant")    return "\U000F059E";
+            return "\U000F0599";  // sunny as fallback
+          };
+
+          // Colors must be renderable on the 7-color Spectra6 ePaper
+          // (black, white, red, yellow, blue, orange, green — no gray)
+          auto cond_color = [](const std::string &c) -> lv_color_t {
+            if (c == "sunny")                                 return lv_color_hex(0xFFCC00);  // yellow
+            if (c == "clear-night")                          return lv_color_hex(0x0000FF);  // blue
+            if (c == "partlycloudy")                         return lv_color_hex(0xFFCC00);  // yellow
+            if (c == "cloudy" || c == "fog")                 return lv_color_hex(0x000000);  // black (no gray)
+            if (c == "rainy" || c == "pouring")              return lv_color_hex(0x0000FF);  // blue
+            if (c == "snowy" || c == "snowy-rainy")          return lv_color_hex(0x0000FF);  // blue
+            if (c == "lightning" || c == "lightning-rainy")  return lv_color_hex(0xFF8000);  // orange
+            if (c == "hail")                                 return lv_color_hex(0x0000FF);  // blue
+            if (c == "windy" || c == "windy-variant")        return lv_color_hex(0x000000);  // black
+            return lv_color_hex(0x000000);
+          };
+
+          lv_obj_t *day_labels[5] = {
+            id(fc_day_label_0), id(fc_day_label_1), id(fc_day_label_2),
+            id(fc_day_label_3), id(fc_day_label_4)
+          };
+          lv_obj_t *icon_labels[5] = {
+            id(fc_icon_label_0), id(fc_icon_label_1), id(fc_icon_label_2),
+            id(fc_icon_label_3), id(fc_icon_label_4)
+          };
+          lv_obj_t *temp_labels[5] = {
+            id(fc_temp_label_0), id(fc_temp_label_1), id(fc_temp_label_2),
+            id(fc_temp_label_3), id(fc_temp_label_4)
+          };
+
+          auto clear_cell = [](lv_obj_t *d, lv_obj_t *ic, lv_obj_t *t) {
+            lv_label_set_text(d, "");
+            lv_label_set_text(ic, "");
+            lv_label_set_text(t, "");
+          };
+
+          JsonDocument doc;
+          if (deserializeJson(doc, id(events_weather_content))) {
+            ESP_LOGW("weather", "forecast JSON parse failed");
+            for (int i = 0; i < 5; i++) clear_cell(day_labels[i], icon_labels[i], temp_labels[i]);
+            return;
+          }
+
+          // Structure: {"f": [{"d":"Sun","c":"cloudy","h":65,"l":58}, ...]}
+          JsonArray forecasts = doc["f"].as<JsonArray>();
+          int i = 0;
+          for (JsonObject fc : forecasts) {
+            if (i >= 5) break;
+            std::string day  = fc["d"] | "";
+            std::string cond = fc["c"] | "";
+            int high = fc["h"] | 0;
+            int low  = fc["l"] | 0;
+
+            std::string glyph = cond_glyph(cond);
+            lv_color_t  color = cond_color(cond);
+
+            char temp_str[10];
+            snprintf(temp_str, sizeof(temp_str), "%d/%d", low, high);
+
+            ESP_LOGI("weather", "day %s cond %s %d/%d", day.c_str(), cond.c_str(), low, high);
+
+            lv_label_set_text(day_labels[i], day.c_str());
+            lv_label_set_text(icon_labels[i], glyph.c_str());
+            lv_obj_set_style_text_color(icon_labels[i], color, 0);
+            lv_label_set_text(temp_labels[i], temp_str);
+            i++;
+          }
+          for (; i < 5; i++) clear_cell(day_labels[i], icon_labels[i], temp_labels[i]);
+
+  - id: !extend events_refresh_display
+    then:
+      - component.update: ${events_ui_display_id}
+
+image:
+  - platform: file
+    file: "${events_ui_qr_image}"
+    id: hackerspace_qr
+    type: grayscale
+
+lvgl:
+  id: lvgl_ui
+  displays:
+    - ${events_ui_display_id}
+  style_definitions:
+    - id: header
+      bg_color: 0x00FF00
+      text_color: 0xFFFFFF
+  top_layer:
+    widgets:
+      - &common_header
+        obj:
+          align: TOP_MID
+          styles: header
+          x: 0
+          y: 0
+          width: 800
+          height: 90
+          widgets:
+            - label:
+                text: "PDX Hackerspace"
+                align: TOP_MID
+                text_align: CENTER
+                text_font: font_large
+                y: -2
+      - label:
+          id: last_updated_label
+          text: ""
+          align: TOP_MID
+          text_align: CENTER
+          text_font: font_small
+          text_color: 0xFFFFFF
+          y: 62
+
+  pages:
+    - id: upcoming_events
+      widgets:
+        - <<: *common_header
+        - label:
+            text: "Upcoming Events"
+            text_font: font_large
+            text_align: CENTER
+            y: 90
+        - label:
+            id: event_list_label
+            text: ""
+            text_font: font_med
+            y: 130
+            x: 4
+            width: 792
+            height: 215
+            long_mode: WRAP
+            recolor: true
+        - obj:
+            x: 0
+            y: 347
+            width: 800
+            height: 133
+            pad_all: 0
+            border_width: 0
+            bg_opa: TRANSP
+            layout:
+              type: FLEX
+              flex_flow: ROW
+            widgets:
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  pad_all: 2
+                  widgets:
+                    - label:
+                        id: fc_day_label_0
+                        text: ""
+                        text_font: font_small
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                    - label:
+                        id: fc_icon_label_0
+                        text: ""
+                        text_font: font_weather_icon
+                        align: CENTER
+                        y: -6
+                    - label:
+                        id: fc_temp_label_0
+                        text: ""
+                        text_font: font_small
+                        align: BOTTOM_MID
+                        y: -2
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  pad_all: 2
+                  widgets:
+                    - label:
+                        id: fc_day_label_1
+                        text: ""
+                        text_font: font_small
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                    - label:
+                        id: fc_icon_label_1
+                        text: ""
+                        text_font: font_weather_icon
+                        align: CENTER
+                        y: -6
+                    - label:
+                        id: fc_temp_label_1
+                        text: ""
+                        text_font: font_small
+                        align: BOTTOM_MID
+                        y: -2
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  pad_all: 2
+                  widgets:
+                    - label:
+                        id: fc_day_label_2
+                        text: ""
+                        text_font: font_small
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                    - label:
+                        id: fc_icon_label_2
+                        text: ""
+                        text_font: font_weather_icon
+                        align: CENTER
+                        y: -6
+                    - label:
+                        id: fc_temp_label_2
+                        text: ""
+                        text_font: font_small
+                        align: BOTTOM_MID
+                        y: -2
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  pad_all: 2
+                  widgets:
+                    - label:
+                        id: fc_day_label_3
+                        text: ""
+                        text_font: font_small
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                    - label:
+                        id: fc_icon_label_3
+                        text: ""
+                        text_font: font_weather_icon
+                        align: CENTER
+                        y: -6
+                    - label:
+                        id: fc_temp_label_3
+                        text: ""
+                        text_font: font_small
+                        align: BOTTOM_MID
+                        y: -2
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  pad_all: 2
+                  widgets:
+                    - label:
+                        id: fc_day_label_4
+                        text: ""
+                        text_font: font_small
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                    - label:
+                        id: fc_icon_label_4
+                        text: ""
+                        text_font: font_weather_icon
+                        align: CENTER
+                        y: -6
+                    - label:
+                        id: fc_temp_label_4
+                        text: ""
+                        text_font: font_small
+                        align: BOTTOM_MID
+                        y: -2
+              - obj:
+                  flex_grow: 1
+                  height: 133
+                  widgets:
+                    - image:
+                        src: hackerspace_qr
+                        align: CENTER
+    - id: current_event
+      widgets:
+        - <<: *common_header
+        - label:
+            text: "Happening Now"
+            text_font: font_large
+            y: 80
+        - label:
+            text: ""
+            id: current_event_1_label
+            text_font: font_med
+            y: 120
+    - id: current_event_dual
+      widgets:
+        - <<: *common_header
+        - label:
+            text: "Happening Now"
+            text_font: font_large
+            y: 80
+        - label:
+            text: ""
+            id: current_event_dual_1_label
+            text_font: font_med
+            y: 120
+    - id: weather

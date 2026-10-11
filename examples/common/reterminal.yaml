@@ -1,0 +1,91 @@
+# Hardware shared by the Seeed reTerminal E10xx ePaper devices (ESP32-S3,
+# 32 MB flash, octal PSRAM): SHT4x temperature/humidity, battery, onboard
+# LED, buzzer and the I2C/SPI buses. Not an example itself.
+#
+# Pins are the ones this project's configs have always used, from Seeed's
+# reTerminal E10xx documentation:
+#   https://wiki.seeedstudio.com/getting_started_with_reterminal_e1004/
+#
+# The including example sets:
+#   reterminal_led_pin  onboard LED (E1002: GPIO6, E1004: GPIO48)
+# and adds the display and the front buttons, which differ per model.
+
+esp32:
+  variant: esp32s3
+  flash_size: 32MB
+  framework:
+    type: esp-idf
+    advanced:
+      compiler_optimization: SIZE
+      enable_idf_experimental_features: true
+      enable_lwip_assert: true
+      ignore_efuse_custom_mac: false
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+packages:
+  battery: !include
+    file: ../../packages/battery.yaml
+    vars:
+      battery_adc_pin: GPIO1
+      battery_enable_pin: GPIO21
+
+esphome:
+  # A list, so examples can add their own on_boot automations.
+  on_boot:
+    - priority: 600
+      then:
+        - output.turn_on: battery_enable
+
+logger:
+  baud_rate: 115200
+  hardware_uart: UART0
+
+# On-board SHT4x temperature/humidity.
+i2c:
+  id: i2c0
+  sda: GPIO19
+  scl: GPIO20
+  scan: false
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+sensor:
+  - platform: sht4x
+    address: 0x44
+    temperature:
+      name: "Temperature"
+      id: sht4x_temperature
+      accuracy_decimals: 1
+    humidity:
+      name: "Humidity"
+      id: sht4x_humidity
+      accuracy_decimals: 1
+    update_interval: 60s
+
+output:
+  - platform: gpio
+    pin: ${reterminal_led_pin}
+    id: led_output
+    inverted: true
+
+  - platform: ledc
+    pin: GPIO45
+    id: buzzer_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: binary
+    id: onboard_led
+    name: "Onboard LED"
+    output: led_output
+
+  - platform: monochromatic
+    id: buzzer
+    name: "Buzzer"
+    output: buzzer_pwm
+    default_transition_length: 0s
