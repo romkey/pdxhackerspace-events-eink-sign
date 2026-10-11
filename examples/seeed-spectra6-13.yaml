@@ -14,10 +14,9 @@ substitutions:
 
 esphome:
   comment: "Seeed XIAO ESP32-S3 + 13\" color ePaper (Spectra6)"
-  on_boot:
-    - priority: 600
-      then:
-        - component.update: epaper_display
+  # No display update at boot: the ePaper keeps its last image, and
+  # events_update skips unchanged content, so drawing the still-empty UI here
+  # would wipe the panel until the events or weather change.
 
 esp32:
   variant: esp32s3

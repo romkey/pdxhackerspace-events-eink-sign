@@ -12,10 +12,9 @@ substitutions:
 
 esphome:
   comment: "Seeed reTerminal E1002 (ESP32-S3 + 7.3\" color ePaper)"
-  on_boot:
-    - priority: 600
-      then:
-        - component.update: epaper_display
+  # No display update at boot: the ePaper keeps its last image, and
+  # events_update skips unchanged content, so drawing the still-empty UI here
+  # would wipe the panel until the events or weather change.
 
 packages:
   base: !include common/base.yaml

@@ -28,7 +28,8 @@ All notable changes to this project are documented here. The format follows
   and history for those entities change.
 - **Breaking:** OTA uses encryption with the API key instead of a password.
 - The 7.3" devices now use the same change detection and 15-minute refresh
-  limit as the 13.3" ones.
+  limit as the 13.3" ones, and no device redraws the panel at boot (that
+  wiped the retained image when the content hadn't changed).
 - esphome-lib packages are pinned to v0.2.0 instead of `main`.
 - Images use the `platform: file` form ESPHome now requires.
 - The EE04 no longer defines an unused buzzer output.

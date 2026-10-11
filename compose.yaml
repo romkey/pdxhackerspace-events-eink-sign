@@ -45,6 +45,9 @@ services:
   dashboard:
     <<: *esphome
     command: dashboard /project/examples
+    environment:
+      # Docker Desktop (macOS/Windows) has no host mDNS; find devices by ping.
+      ESPHOME_DASHBOARD_USE_PING: "true"
     ports:
       - "6052:6052"
     restart: unless-stopped
