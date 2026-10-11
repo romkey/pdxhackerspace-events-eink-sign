@@ -14,4 +14,5 @@ open a pull request; CI and Lint must pass before it can merge.
 - `components/epaper_spi` is a fork of ESPHome's component carrying
   esphome/esphome#13860. Keep it close to upstream so it can go back as a PR.
 - Panels are Spectra6: only black, white, red, yellow, blue, orange, green.
-- `cases/` is OpenSCAD; `.github/workflows/openscad.yml` regenerates STLs.
+- `cases/` is OpenSCAD. After editing a .scad, run
+  `docker compose run --rm stl` and commit the STLs; CI fails if they're stale.

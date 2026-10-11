@@ -79,6 +79,12 @@ The weather comes from a Home Assistant sensor, `sensor.weather_forecast_5_day`,
 The OpenSCAD case is a work in progress and should be ignored for now. Looking for good framing/case solutions. The
 Spectra6 display is fragile and needs mechanical protection.
 
+After changing a `.scad` file, regenerate the STLs and commit them with your change; CI fails a pull request whose STLs are out of date, and each run's STLs are also downloadable as the `case-stls` artifact:
+
+```bash
+docker compose run --rm stl
+```
+
 ## Building and using
 
 Requires Docker.

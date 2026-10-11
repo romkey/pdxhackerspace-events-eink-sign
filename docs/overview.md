@@ -21,8 +21,8 @@ reTerminals add an SHT4x at I2C 0x44.
   esphome-lib packages.
 - `examples/common/reterminal.yaml`: reTerminal E10xx shared hardware.
 - `examples/local-*.yaml`: personal device configs, gitignored.
-- `images/`: QR codes. `cases/`: OpenSCAD case (WIP), STLs built by
-  `.github/workflows/openscad.yml`.
+- `images/`: QR codes. `cases/`: OpenSCAD case (WIP); regenerate the
+  committed STLs with `docker compose run --rm stl`, CI checks they match.
 
 ## Required by packages
 

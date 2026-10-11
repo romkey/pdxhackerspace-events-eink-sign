@@ -1,23 +1,30 @@
 name: OpenSCAD
 
+# Regenerates the case STLs with the same pinned OpenSCAD image as
+# `docker compose run --rm stl`, uploads them as an artifact, and fails if
+# the committed STLs are out of date. It never pushes: main is protected, so
+# STL changes reach it through the pull request that changed the .scad.
+
 on:
   push:
     branches: [main]
     paths:
       - "cases/**"
+      - "compose.yaml"
       - ".github/workflows/openscad.yml"
   pull_request:
     paths:
       - "cases/**"
+      - "compose.yaml"
       - ".github/workflows/openscad.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: openscad-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: write
 
 jobs:
   stl:
@@ -29,26 +36,19 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Install OpenSCAD
-        run: sudo apt-get update && sudo apt-get install -y openscad
-
       - name: Generate STLs
-        run: ./cases/generate-stls.sh
+        run: docker compose run --rm --user "$(id -u):$(id -g)" stl
 
-      - name: Verify STLs on pull request
-        if: github.event_name == 'pull_request'
-        run: git diff --exit-code -- cases/specta6-13*.stl
+      - name: Upload STLs
+        uses: actions/upload-artifact@v7
+        with:
+          name: case-stls
+          path: cases/*.stl
+          if-no-files-found: error
 
-      - name: Commit STLs on main
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Check committed STLs are up to date
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add cases/specta6-13*.stl
-          if git diff --staged --quiet; then
-            echo "STL files are already up to date."
-          else
-            git commit -m "Update specta6-13 STL files" \
-              -m "Generated from cases/specta6-13.scad and cases/specta6-13-split.scad by OpenSCAD CI."
-            git push
+          if ! git diff --exit-code --stat -- 'cases/*.stl'; then
+            echo "::error::STLs are out of date. Run 'docker compose run --rm stl' and commit cases/*.stl."
+            exit 1
           fi

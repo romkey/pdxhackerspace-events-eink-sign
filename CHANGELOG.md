@@ -34,6 +34,10 @@ All notable changes to this project are documented here. The format follows
 - Images use the `platform: file` form ESPHome now requires.
 - The EE04 no longer defines an unused buzzer output.
 - The 13.3" panel datasheet is Seeed's current revision, with its source recorded.
+- The OpenSCAD workflow no longer pushes STLs to `main`. It generates them
+  with a pinned OpenSCAD image (also `docker compose run --rm stl`), uploads
+  them as an artifact and fails pull requests whose committed STLs are stale.
+  STLs were regenerated with that image.
 - Battery voltage reports device/state class and is smoothed with a
   moving average.
 
