@@ -6,6 +6,7 @@
 #   docker compose run --rm lint          # all pre-commit checks, like CI
 #   docker compose run --rm esphome run examples/example.yaml   # flash via OTA
 #   docker compose up dashboard           # web UI on :6052
+#   docker compose run --rm stl           # regenerate the case STLs
 #
 # Speed: the ESPHome image keeps toolchains and its compiler cache under
 # /cache and build trees under /build when those are mounted. Both are named
@@ -63,6 +64,15 @@ services:
       - lint-cache:/root/.cache
     working_dir: /project
     command: uvx pre-commit@4.6.2 run --all-files --show-diff-on-failure
+
+  # Regenerates the case STLs in cases/ with the same OpenSCAD CI uses:
+  #   docker compose run --rm stl
+  stl:
+    image: openscad/openscad:trixie.2026-09-28
+    volumes:
+      - .:/project
+    working_dir: /project
+    entrypoint: ["cases/generate-stls.sh"]
 
 volumes:
   esphome-cache:
