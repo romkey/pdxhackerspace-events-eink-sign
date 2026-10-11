@@ -43,11 +43,11 @@ logger:
 
 api:
   encryption:
-    key: "hvWcFUfoDhTctZiECYD81PE/uUryfFWGA7g3j8GkHXc="
+    key: !secret api_key
 
 ota:
-  - platform: esphome
-    password: "3e7d22551eef938f5ffe9a8fb5e5f9df"
+  platform: esphome
+  password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid

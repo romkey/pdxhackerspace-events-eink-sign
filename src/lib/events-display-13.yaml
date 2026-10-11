@@ -3,6 +3,47 @@
 # Include via: packages: events-display: !include lib/events-display-13.yaml
 # Device file must define: epaper_display, bsp_battery_enable
 
+# --- Persistent state for rate-limiting / change-detection ---
+# These survive deep sleep and reboots (restore_value) so a device that wakes,
+# checks for updates, and sleeps again can tell whether the displayed content
+# actually changed and how long ago the panel was last refreshed.
+globals:
+  # FNV-1a hashes of the content currently drawn on the panel.
+  - id: displayed_events_hash
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  - id: displayed_weather_hash
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  # Unix epoch (seconds) of the last physical panel refresh; 0 means "never".
+  - id: last_render_epoch
+    type: uint32_t
+    restore_value: true
+    initial_value: '0'
+  # Latest raw weather forecast payload received from HA this session, plus a
+  # flag so a not-yet-received forecast is treated as "unchanged" rather than
+  # as a spurious change right after boot.
+  - id: weather_content
+    type: std::string
+    restore_value: false
+    initial_value: '""'
+  - id: weather_received
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Set by the refresh decision; read by the device to gate component.update.
+  - id: should_refresh_display
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Set by manual refresh actions to bypass rate-limit + change-detection.
+  - id: force_refresh
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
 font:
   - file: "gfonts://JetBrains Mono@700"
     id: font_large
@@ -69,6 +110,11 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
+            // Remember the latest forecast so the refresh decision in
+            // update_events can detect whether the weather actually changed.
+            id(weather_content) = x;
+            id(weather_received) = true;
+
             auto cond_glyph = [](const std::string &c) -> std::string {
               if (c == "sunny")            return "\U000F0599";
               if (c == "clear-night")      return "\U000F0594";
@@ -159,6 +205,7 @@ button:
     name: "Refresh Events"
     on_press:
       then:
+        - lambda: 'id(force_refresh) = true;'
         - script.execute: update_events
 
 interval:
@@ -286,7 +333,58 @@ script:
                   id(last_updated).publish_state(last_upd);
                   lv_label_set_text(id(event_list_label), result.c_str());
                   lv_label_set_text(id(last_updated_label), last_upd.c_str());
-              - component.update: epaper_display
+
+                  // --- Decide whether the panel actually needs refreshing ---
+                  // Requirements:
+                  //  * never refresh more than once per 15 minutes
+                  //  * never refresh if neither events nor weather changed
+                  // A manual refresh (force_refresh) bypasses both gates.
+                  auto fnv1a = [](const std::string &s) -> uint32_t {
+                    uint32_t h = 2166136261u;
+                    for (unsigned char c : s) { h ^= c; h *= 16777619u; }
+                    return h;
+                  };
+
+                  uint32_t ev_hash = fnv1a(result);
+                  // If we haven't received a forecast yet this session, treat the
+                  // weather as unchanged rather than as a spurious change.
+                  uint32_t wx_hash = id(weather_received)
+                                       ? fnv1a(id(weather_content))
+                                       : id(displayed_weather_hash);
+
+                  bool content_changed = (ev_hash != id(displayed_events_hash)) ||
+                                         (wx_hash != id(displayed_weather_hash));
+
+                  // Rate limit using the wall clock (epoch is timezone-independent
+                  // and the RTC keeps running across deep sleep). If the clock is
+                  // not yet valid we can't measure the interval, so we don't block.
+                  auto tnow = id(ha_time).now();
+                  uint32_t now_epoch = tnow.is_valid() ? (uint32_t) tnow.timestamp : 0;
+                  bool rate_ok = (id(last_render_epoch) == 0) ||
+                                 (now_epoch == 0) ||
+                                 (now_epoch - id(last_render_epoch) >= 900);
+
+                  bool do_refresh = id(force_refresh) || (content_changed && rate_ok);
+                  id(force_refresh) = false;
+
+                  if (do_refresh) {
+                    id(displayed_events_hash) = ev_hash;
+                    id(displayed_weather_hash) = wx_hash;
+                    if (now_epoch != 0) id(last_render_epoch) = now_epoch;
+                    id(should_refresh_display) = true;
+                    ESP_LOGI("events", "Refreshing panel (changed=%d rate_ok=%d)",
+                             content_changed, rate_ok);
+                  } else {
+                    id(should_refresh_display) = false;
+                    ESP_LOGI("events",
+                             "Skipping panel refresh (changed=%d rate_ok=%d)",
+                             content_changed, rate_ok);
+                  }
+              - if:
+                  condition:
+                    lambda: 'return id(should_refresh_display);'
+                  then:
+                    - component.update: epaper_display
 
 image:
 #  - file: "images/ctrlh-sign.png"

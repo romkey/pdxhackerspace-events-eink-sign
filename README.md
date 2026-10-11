@@ -9,8 +9,9 @@ I got hung up on the idea of an e-ink sign because e-ink is pretty and looks sha
 
 ## Hardware
 
-I have this running on three different platforms:
+I have this running on four different platforms:
  - [SeeedStudio ReTerminal 7.3" "Full-color" (6 color) ePaper display](https://www.seeedstudio.com/reTerminal-E1002-p-6533.html)
+- [SeeedStudio ReTerminal E1004](https://www.seeedstudio.com/reTerminal-E1004-p-6692.html) with a 13.3" Spectra6 1200x1600 ePaper display
 - [SeeedStudio EE04 controller](https://www.seeedstudio.com/XIAO-ePaper-Display-Board-EE04-p-6560.html) with [7.3" Spectra6 800x480 ePaper display](https://www.seeedstudio.com/7-3inch-Six-Color-eInk-ePaper-Display-with-800x480-Pixels-p-6567.html)
 - [SeeedStudio EE02 controller](https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE02-for-13-3-Spectratm-6-E-Ink.html) with [13.3" Spectra6 1200x1600 ePaper display](https://www.seeedstudio.com/13-3inch-Six-Color-eInk-ePaper-Display-with-1200x1600-Pixels-p-6569.html)
 
@@ -24,11 +25,23 @@ I can **hear** the EE02 update the display. I think the inductors on the board a
 
 ## Firmware
  
-All are running firmware built with [ESPHome](https://esphome.io) using LVGL. ESPHome has integrated support for the 7.3" ePaper display and an [outstanding PR for the 13.3" display](https://github.com/esphome/esphome/pull/13860), which I had to make a few changes to and will contribute back.
+All are running firmware built with [ESPHome](https://esphome.io) using LVGL. ESPHome has integrated support for the 7.3" ePaper display
+and an [outstanding PR for the 13.3" display](https://github.com/esphome/esphome/pull/13860), which I had 
+to make a few changes to and will contribute back when I have time to review them.
+
+ESPHome 2026.7.0 added [native support for the reTerminal E1004's 13.3" display](https://github.com/esphome/esphome/pull/16706)
+(`epaper_spi` model `Seeed-reTerminal-E1004`), so `reterminal-e1004.yaml` uses the stock component with no `local_components` needed.
 
 I wrote the initial firmware by hand and then put it down for a few months. When I came back to it I tried having Claude update it - Opus 4.8 did a great job and is apparently adept at writing ESPHome firmware now. It also made the changes to the 13.3" PR.
 
-I'm sharing this in the spirit of sharing but I'm not intending to generalize this or offer support to anyone trying to use it.
+I'm sharing this in the spirit of sharing but I'm not intending to
+generalize this or offer support to anyone trying to use it.
+
+## Case
+
+The OpenSCAD case is a work in progress and should be ignored for now. Looking for good framing/case solutions. The
+Spectra6 display is fragile and needs mechanical protection.
+
 
 ## Docker
 
@@ -51,7 +64,8 @@ open http://localhost:6052
 
 Replace the config name with the device you are building:
 
-- `reterminal.yaml` — ReTerminal 7.3"
+- `reterminal.yaml` — ReTerminal E1002 7.3"
+- `reterminal-e1004.yaml` — ReTerminal E1004 13.3"
 - `seeed-spectra6.yaml` — EE04 + 7.3" Spectra6
 - `seeed-spectra6-13.yaml` — EE02 + 13.3" Spectra6
 

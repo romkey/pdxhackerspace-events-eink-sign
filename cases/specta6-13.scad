@@ -29,9 +29,27 @@ frame_depth = 5;
 back_depth = 3;
 case_thickness = frame_depth + back_depth;
 
+// --- Frame lip (display pocket) ---
+lip_h = 1;
+lip_t = 1;
+pocket_depth = frame_depth - lip_h;
+
 // --- Fasteners (M3) ---
 screw_hole_d = 3.2;
 screw_inset = 2;  // hole center from case edge, in the 4 mm margin outside display
+
+// --- Back ribbon cable notches (landscape: long edge horizontal) ---
+cable_notch_inset = 39;  // from top and bottom edges
+cable_notch_w = side_margin;  // frame margin beyond display
+cable_notch_y = cable_notch_inset;
+cable_notch_h = case_h - 2 * cable_notch_inset;
+
+module cable_notches(depth) {
+    translate([-0.01, cable_notch_y, -0.01])
+        cube([cable_notch_w + 0.01, cable_notch_h, depth + 0.02]);
+    translate([case_w - cable_notch_w, cable_notch_y, -0.01])
+        cube([cable_notch_w + 0.01, cable_notch_h, depth + 0.02]);
+}
 
 // --- Stand base ---
 stand_angle = 80;  // degrees from horizontal
@@ -47,7 +65,8 @@ stand_foot_w = stand_slot_length + 10;
 stand_base_t = 5;
 
 // --- Render control ---
-part = "base";  // [front, back, base]
+part = "all";  // [front, back, base, all]
+layout_gap = 10;
 
 module screw_holes(height) {
     positions = [
@@ -66,6 +85,10 @@ module front_frame() {
         cube([case_w, case_h, frame_depth]);
         translate([cutout_x, cutout_y, -0.01])
             cube([cutout_w, cutout_h, frame_depth + 0.02]);
+        translate([display_x, display_y, -0.01])
+            cube([display_w, display_h, pocket_depth + 0.01]);
+        translate([display_x + lip_t, display_y + lip_t, pocket_depth - 0.01])
+            cube([display_w - 2 * lip_t, display_h - 2 * lip_t, lip_h + 0.02]);
         screw_holes(frame_depth);
     }
 }
@@ -74,6 +97,7 @@ module back_panel() {
     difference() {
         cube([case_w, case_h, back_depth]);
         screw_holes(back_depth);
+        cable_notches(back_depth);
     }
 }
 
@@ -105,7 +129,13 @@ module stand_base(angle = stand_angle) {
             }
 }
 
-if (part == "front") {
+if (part == "all") {
+    front_frame();
+    translate([case_w + layout_gap, 0, 0])
+        back_panel();
+    translate([0, case_h + layout_gap + stand_foot_back, 0])
+        stand_base();
+} else if (part == "front") {
     front_frame();
 } else if (part == "back") {
     back_panel();

@@ -25,6 +25,7 @@ jobs:
       matrix:
         config:
           - reterminal.yaml
+          - reterminal-e1004.yaml
           - seeed-spectra6.yaml
           - seeed-spectra6-13.yaml
 
@@ -42,7 +43,7 @@ jobs:
           # Hash source inputs only. Do not use src/**/*.yaml — after compile,
           # src/.esphome contains generated yaml and symlinks that break hashFiles
           # when the cache action re-evaluates the key in its post step.
-          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/reterminal.yaml', 'src/seeed-spectra6.yaml', 'src/seeed-spectra6-13.yaml', 'src/lib/**', 'src/local_components/**', 'src/images/*') }}
+          key: esphome-${{ runner.os }}-${{ matrix.config }}-${{ hashFiles('src/reterminal.yaml', 'src/reterminal-e1004.yaml', 'src/seeed-spectra6.yaml', 'src/seeed-spectra6-13.yaml', 'src/lib/**', 'src/local_components/**', 'src/images/*') }}
           restore-keys: |
             esphome-${{ runner.os }}-${{ matrix.config }}-
 

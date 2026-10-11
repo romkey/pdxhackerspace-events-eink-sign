@@ -1,6 +1,5 @@
 // Seeed Spectra6 13.3" — split for smaller printers (~220 mm bed).
-// Front/back print in left/right halves with snap pegs; base is a foot segment
-// (print several and space along the frame bottom edge).
+// Front: plain split. Back: snap pegs align and hold the thin rear halves.
 //
 // Dimensions (mm):
 //   Visible cutout:     270.4 x 202.8
@@ -29,20 +28,38 @@ frame_depth = 5;
 back_depth = 3;
 case_thickness = frame_depth + back_depth;
 
+// --- Frame lip (display pocket) ---
+lip_h = 1;
+lip_t = 1;
+pocket_depth = frame_depth - lip_h;
+
 // --- Fasteners (M3) ---
 screw_hole_d = 3.2;
 screw_inset = 2;
 
-// --- Split joint ---
+// --- Back ribbon cable notches (landscape: long edge horizontal) ---
+cable_notch_inset = 39;
+cable_notch_w = side_margin;
+cable_notch_y = cable_notch_inset;
+cable_notch_h = case_h - 2 * cable_notch_inset;
+
+module cable_notches(depth) {
+    translate([-0.01, cable_notch_y, -0.01])
+        cube([cable_notch_w + 0.01, cable_notch_h, depth + 0.02]);
+    translate([case_w - cable_notch_w, cable_notch_y, -0.01])
+        cube([cable_notch_w + 0.01, cable_notch_h, depth + 0.02]);
+}
+
+// --- Split ---
 split_x = case_w / 2;
 snap_d = 5;
 snap_len = 8;
-snap_hole_d = snap_d + 0.3;
 snap_y = [case_h * 0.35, case_h * 0.5, case_h * 0.65];
 
 // --- Stand foot (one segment; print foot_count copies) ---
 stand_angle = 80;
 stand_slot_clearance = 0.4;
+stand_wall_t = 4;
 foot_len = 90;
 stand_foot_depth = 95;
 stand_foot_back = stand_foot_depth / 3;
@@ -53,7 +70,10 @@ stand_base_t = 5;
 foot_count = 4;  // suggested copies along the frame bottom edge
 
 // --- Render control ---
-part = "front-left";  // [front-left, front-right, back-left, back-right, foot]
+part = "all";  // [front-left, front-right, back-left, back-right, foot, all]
+layout_gap = 10;
+layout_col_w = split_x + layout_gap;
+layout_row_h = case_h + layout_gap;
 
 module screw_holes(height) {
     positions = [
@@ -72,6 +92,10 @@ module front_frame() {
         cube([case_w, case_h, frame_depth]);
         translate([cutout_x, cutout_y, -0.01])
             cube([cutout_w, cutout_h, frame_depth + 0.02]);
+        translate([display_x, display_y, -0.01])
+            cube([display_w, display_h, pocket_depth + 0.01]);
+        translate([display_x + lip_t, display_y + lip_t, pocket_depth - 0.01])
+            cube([display_w - 2 * lip_t, display_h - 2 * lip_t, lip_h + 0.02]);
         screw_holes(frame_depth);
     }
 }
@@ -80,6 +104,7 @@ module back_panel() {
     difference() {
         cube([case_w, case_h, back_depth]);
         screw_holes(back_depth);
+        cable_notches(back_depth);
     }
 }
 
@@ -88,75 +113,94 @@ module clip_x_half(side, height) {
     intersection() {
         children();
         if (side == "left")
-            cube([split_x + snap_len, case_h + pad, height + pad]);
+            cube([split_x + pad, case_h + pad, height + pad]);
         else
-            translate([split_x - snap_len, 0, 0])
-                cube([case_w - split_x + snap_len + pad, case_h + pad, height + pad]);
+            translate([split_x, 0, 0])
+                cube([case_w - split_x + pad, case_h + pad, height + pad]);
     }
 }
 
+module case_half(side, height) {
+    if (side == "left") {
+        clip_x_half("left", height)
+            children();
+    } else {
+        translate([-split_x, 0, 0])
+            clip_x_half("right", height)
+                children();
+    }
+}
+
+function snap_radius(height) = min(snap_d, height - 0.5);
+
 module snap_pegs(height) {
+    r = snap_radius(height);
     z = height / 2;
     for (y = snap_y)
-        translate([split_x - 0.01, y, z])
+        translate([split_x, y, z])
             rotate([0, 90, 0])
-                cylinder(h = snap_len, d = snap_d, $fn = 32);
+                cylinder(h = snap_len, d = r, $fn = 32);
 }
 
 module snap_holes(height) {
+    r = snap_radius(height);
     z = height / 2;
     for (y = snap_y)
-        translate([split_x - 0.01, y, z])
+        translate([split_x, y, z])
             rotate([0, 90, 0])
-                cylinder(h = snap_len + 0.02, d = snap_hole_d, $fn = 32);
+                cylinder(h = snap_len + 0.02, d = r + 0.3, $fn = 32);
 }
 
 module front_frame_half(side) {
-    difference() {
-        union() {
-            clip_x_half(side, frame_depth)
-                front_frame();
-            if (side == "left")
-                snap_pegs(frame_depth);
-        }
-        if (side == "right")
-            snap_holes(frame_depth);
-    }
+    case_half(side, frame_depth)
+        front_frame();
 }
 
 module back_panel_half(side) {
-    difference() {
+    if (side == "left") {
         union() {
-            clip_x_half(side, back_depth)
+            clip_x_half("left", back_depth)
                 back_panel();
-            if (side == "left")
-                snap_pegs(back_depth);
+            snap_pegs(back_depth);
         }
-        if (side == "right")
-            snap_holes(back_depth);
+    } else {
+        translate([-split_x, 0, 0])
+            difference() {
+                clip_x_half("right", back_depth)
+                    back_panel();
+                snap_holes(back_depth);
+            }
     }
 }
 
-// Narrow segment of stand_base (print foot_count copies along the frame edge).
+// stand_base, narrowed to foot_len; notch without end caps (open along X).
 module stand_foot(angle = stand_angle) {
     slot_w = case_thickness + stand_slot_clearance;
     tilt = angle - 90;
 
-    // Foot: 1/3 behind slot (−Y), 2/3 in front (+Y) where display leans.
     translate([0, -stand_foot_back, 0])
         cube([foot_len, stand_foot_depth, stand_base_t]);
 
-    // Slot at the 1/3 / 2/3 boundary; same as full base but no side walls.
     translate([0, 0, stand_base_t])
         rotate([tilt, 0, 0])
             difference() {
-                cube([foot_len, slot_w, stand_heel_h]);
-                translate([0, 0, stand_heel_h - stand_slot_depth])
+                cube([foot_len, slot_w + 2 * stand_wall_t, stand_heel_h]);
+                translate([0, stand_wall_t, stand_heel_h - stand_slot_depth])
                     cube([foot_len, slot_w, stand_slot_depth + 0.02]);
             }
 }
 
-if (part == "front-left") {
+if (part == "all") {
+    front_frame_half("left");
+    translate([layout_col_w, 0, 0])
+        front_frame_half("right");
+    translate([0, layout_row_h, 0])
+        back_panel_half("left");
+    translate([layout_col_w, layout_row_h, 0])
+        back_panel_half("right");
+    translate([case_w + layout_gap * 2, stand_foot_back, 0])
+        stand_foot();
+} else if (part == "front-left") {
     front_frame_half("left");
 } else if (part == "front-right") {
     front_frame_half("right");
