@@ -1,0 +1,80 @@
+# Seeed reTerminal E1004: ESP32-S3 + 13.3" Spectra6 color ePaper, 1200x1600.
+#
+# Uses ESPHome's native epaper_spi support (model Seeed-reTerminal-E1004,
+# T133A01 controller) added in ESPHome 2026.7.0; no custom component needed.
+#
+#   https://www.seeedstudio.com/reTerminal-E1004-p-6692.html
+#   https://wiki.seeedstudio.com/getting_started_with_reterminal_e1004/
+
+substitutions:
+  name: reterminal-e1004
+  friendly_name: reTerminal E1004
+  # E1004 onboard LED is on GPIO48 (E1001/E1002 use GPIO6).
+  reterminal_led_pin: GPIO48
+
+esphome:
+  comment: "Seeed reTerminal E1004 (ESP32-S3 + 13.3\" color ePaper)"
+  min_version: 2026.7.0
+  # The ePaper keeps its last image across reboots, so we do NOT force a
+  # refresh at boot. events_update (on Wi-Fi connect and every 30 min)
+  # decides whether the content actually changed and refreshes only when
+  # needed, at most once every 15 minutes.
+
+packages:
+  base: !include common/base.yaml
+  reterminal: !include common/reterminal.yaml
+  events: !include ../packages/events.yaml
+  events_ui: !include ../packages/events-ui-1600x1200.yaml
+
+web_server:
+  version: 3
+
+# Integrated board: cs/cs1/dc/reset/busy/enable pins all default from the
+# model definition. Display buffer is ~960KB, hence PSRAM.
+display:
+  - platform: epaper_spi
+    id: epaper_display
+    model: Seeed-reTerminal-E1004
+    update_interval: never
+    auto_clear_enabled: false
+
+# Front buttons: KEY0=GPIO3 (right), KEY1=GPIO4 (left), KEY2=GPIO5 (refresh).
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_right
+    name: "Right Button"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 300ms
+        - light.turn_off: onboard_led
+
+  - platform: gpio
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_left
+    name: "Left Button"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 300ms
+        - light.turn_off: onboard_led
+
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_refresh
+    name: "Refresh Button"
+    on_press:
+      then:
+        # Manual refresh bypasses the change-detection + 15-minute rate limit.
+        - lambda: 'id(events_force_refresh) = true;'
+        - script.execute: events_update

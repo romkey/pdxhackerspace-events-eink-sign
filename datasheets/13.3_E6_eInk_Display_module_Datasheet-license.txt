@@ -1,0 +1,10 @@
+13.3_E6_eInk_Display_module_Datasheet.pdf is copyright Seeed Technology
+Co., Ltd. (or the panel manufacturer) and is not covered by this
+repository's license. It is included unmodified, for reference only.
+For terms of use and the latest version, see the manufacturer:
+
+Source: TODO: original download URL not recorded. Seeed publishes a
+        different revision at
+        https://files.seeedstudio.com/wiki/Epaper/EE02/13_3_E6_eInk_Display_module_Datasheet.pdf
+        (linked from https://wiki.seeedstudio.com/getting_started_with_ee02/#resources)
+Retrieved: 2026-06-09 (date it was committed here)

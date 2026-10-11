@@ -1,0 +1,86 @@
+# Seeed EE02 (XIAO ESP32-S3) + 13.3" Spectra6 color ePaper, 1200x1600.
+#
+# Needs this repo's epaper_spi component (components/epaper_spi): ESPHome's
+# own plus the T133A01 controller from
+# https://github.com/esphome/esphome/pull/13860 and LVGL hardware rotation.
+#
+#   https://www.seeedstudio.com/XIAO-ePaper-DIY-Kit-EE02-for-13-3-Spectratm-6-E-Ink.html
+#   https://wiki.seeedstudio.com/getting_started_with_ee02/#resources
+#   Datasheet: ../datasheets/13.3_E6_eInk_Display_module_Datasheet.pdf
+
+substitutions:
+  name: seeed-spectra6-13
+  friendly_name: Seeed Spectra6 13"
+
+esphome:
+  comment: "Seeed XIAO ESP32-S3 + 13\" color ePaper (Spectra6)"
+  on_boot:
+    - priority: 600
+      then:
+        - component.update: epaper_display
+
+esp32:
+  variant: esp32s3
+  board: seeed_xiao_esp32s3
+  flash_size: 8MB
+  framework:
+    type: esp-idf
+    advanced:
+      compiler_optimization: SIZE
+      enable_idf_experimental_features: true
+      enable_lwip_assert: true
+      ignore_efuse_custom_mac: false
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [epaper_spi]
+
+packages:
+  base: !include common/base.yaml
+  events: !include ../packages/events.yaml
+  events_ui: !include ../packages/events-ui-1600x1200.yaml
+
+web_server:
+  version: 3
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+# cs/dc/reset/busy pins default from the model definition.
+display:
+  - platform: epaper_spi
+    id: epaper_display
+    model: Seeed-ee02-color-13.3
+    update_interval: never
+    auto_clear_enabled: false
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO2
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_1
+
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_2
+    name: "Button 2"
+
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_3
+    name: "Button 3"

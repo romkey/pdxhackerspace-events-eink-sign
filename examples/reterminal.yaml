@@ -1,0 +1,92 @@
+# Seeed reTerminal E1002: ESP32-S3 + 7.3" Spectra6 color ePaper, 800x480.
+#
+#   https://www.seeedstudio.com/reTerminal-E1002-p-6533.html
+#
+# Board and pin choices live here and in common/reterminal.yaml, never in
+# packages/.
+
+substitutions:
+  name: reterminal
+  friendly_name: reTerminal
+  reterminal_led_pin: GPIO6
+
+esphome:
+  comment: "Seeed reTerminal E1002 (ESP32-S3 + 7.3\" color ePaper)"
+  on_boot:
+    - priority: 600
+      then:
+        - component.update: epaper_display
+
+packages:
+  base: !include common/base.yaml
+  reterminal: !include common/reterminal.yaml
+  events: !include ../packages/events.yaml
+  events_ui: !include ../packages/events-ui-800x480.yaml
+
+web_server:
+  port: 80
+  version: 3
+  local: true
+
+display:
+  - platform: epaper_spi
+    id: epaper_display
+    model: 7.3in-spectra-e6
+    cs_pin: GPIO10
+    dc_pin: GPIO11
+    reset_pin:
+      number: GPIO12
+      inverted: false
+    busy_pin:
+      number: GPIO13
+      inverted: true
+    update_interval: never
+    auto_clear_enabled: false
+
+# Front buttons.
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_1
+    name: "Button 1"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 300ms
+        - light.turn_off: onboard_led
+
+  - platform: gpio
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_2
+    name: "Button 2"
+    on_press:
+      then:
+        - light.turn_on: onboard_led
+        - delay: 150ms
+        - light.turn_off: onboard_led
+        - delay: 150ms
+        - light.turn_on: onboard_led
+        - delay: 150ms
+        - light.turn_off: onboard_led
+        - light.turn_on:
+            id: buzzer
+            brightness: 70%
+        - delay: 200ms
+        - light.turn_off: buzzer
+
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    id: button_3
+    name: "Button 3"
+    on_press:
+      then:
+        - light.toggle: onboard_led

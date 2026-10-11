@@ -1,0 +1,79 @@
+# LiPo battery voltage and an approximate charge level.
+#
+# Reads the battery through a resistor divider on an ADC pin. Many Seeed
+# boards gate the divider with an enable pin; this package defines that
+# output but doesn't turn it on, so the including config should run
+# `output.turn_on: <battery_enable_id>` in esphome: on_boot.
+#
+# The level is a coarse lookup of single-cell LiPo voltage, not a fuel gauge.
+#
+# Requires: battery_adc_pin and battery_enable_pin.
+#
+# Substitutions:
+#   battery_adc_pin              ADC GPIO the divider is on (required)
+#   battery_enable_pin           GPIO that enables the divider (required)
+#   battery_divider              divider ratio to undo (default 2.0)
+#   battery_attenuation          ADC attenuation (default 12db)
+#   battery_update_interval      sampling interval (default 60s)
+#   battery_filter_window        moving-average window, in samples (default 5)
+#   battery_voltage_name         entity name (default "Battery Voltage")
+#   battery_voltage_id           sensor id (default battery_voltage)
+#   battery_voltage_entity_category  default "diagnostic"
+#   battery_level_name           entity name (default "Battery Level")
+#   battery_level_id             sensor id (default battery_level)
+#   battery_enable_id            output id (default battery_enable)
+
+substitutions:
+  battery_divider: "2.0"
+  battery_attenuation: "12db"
+  battery_update_interval: "60s"
+  battery_filter_window: "5"
+  battery_voltage_name: "Battery Voltage"
+  battery_voltage_id: battery_voltage
+  battery_voltage_entity_category: "diagnostic"
+  battery_level_name: "Battery Level"
+  battery_level_id: battery_level
+  battery_enable_id: battery_enable
+
+output:
+  - platform: gpio
+    pin: ${battery_enable_pin}
+    id: ${battery_enable_id}
+
+sensor:
+  - platform: adc
+    pin: ${battery_adc_pin}
+    id: ${battery_voltage_id}
+    name: "${battery_voltage_name}"
+    attenuation: ${battery_attenuation}
+    update_interval: ${battery_update_interval}
+    entity_category: "${battery_voltage_entity_category}"
+    device_class: voltage
+    state_class: measurement
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    filters:
+      - multiply: ${battery_divider}
+      - sliding_window_moving_average:
+          window_size: ${battery_filter_window}
+          send_every: 1
+
+  - platform: template
+    id: ${battery_level_id}
+    name: "${battery_level_name}"
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: ${battery_update_interval}
+    lambda: |-
+      const float v = id(${battery_voltage_id}).state;
+      if (v >= 4.15) return 100.0f;
+      if (v >= 3.95) return 90.0f;
+      if (v >= 3.85) return 75.0f;
+      if (v >= 3.75) return 60.0f;
+      if (v >= 3.65) return 45.0f;
+      if (v >= 3.55) return 30.0f;
+      if (v >= 3.45) return 15.0f;
+      if (v >= 3.35) return 5.0f;
+      return 0.0f;
